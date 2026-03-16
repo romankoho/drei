@@ -1,14 +1,11 @@
-import { EventManager, ReactThreeFiber, RootState, useThree } from '@react-three/fiber'
+import { EventManager, RootState, ThreeElement, useThree } from '@react-three/fiber'
 import { DomEvent } from '@react-three/fiber/dist/declarations/src/core/events'
 import * as React from 'react'
 import * as THREE from 'three'
 import { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 
-export type PointerLockControlsProps = ReactThreeFiber.Object3DNode<
-  PointerLockControlsImpl,
-  typeof PointerLockControlsImpl
-> & {
+export type PointerLockControlsProps = Omit<ThreeElement<typeof PointerLockControlsImpl>, 'ref' | 'args'> & {
   domElement?: HTMLElement
   selector?: string
   enabled?: boolean
@@ -82,6 +79,7 @@ export const PointerLockControls: ForwardRefComponent<PointerLockControlsProps, 
       React.useEffect(() => {
         if (makeDefault) {
           const old = get().controls
+          // @ts-ignore https://github.com/three-types/three-ts-types/pull/1398
           set({ controls })
           return () => set({ controls: old })
         }

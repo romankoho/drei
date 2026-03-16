@@ -2,70 +2,58 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useFrame } from '@react-three/fiber'
+import { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Setup } from '../Setup'
 
 import { CameraShake, OrbitControls } from '../../src'
-
-const frequencyArgType = {
-  control: {
-    max: 10,
-    min: 0,
-    step: 0.1,
-    type: 'range',
-  },
-}
-
-const numberArgType = {
-  control: {
-    max: 1,
-    min: 0,
-    step: 0.05,
-    type: 'range',
-  },
-}
-
-const args = {
-  maxPitch: 0.05,
-  maxRoll: 0.05,
-  maxYaw: 0.05,
-  pitchFrequency: 0.8,
-  rollFrequency: 0.8,
-  yawFrequency: 0.8,
-}
-
-const argTypes = {
-  maxPitch: numberArgType,
-  maxRoll: numberArgType,
-  maxYaw: numberArgType,
-  pitchFrequency: frequencyArgType,
-  rollFrequency: frequencyArgType,
-  yawFrequency: frequencyArgType,
-}
+import { ComponentProps } from 'react'
 
 export default {
   title: 'Staging/CameraShake',
   component: CameraShake,
   decorators: [
-    (storyFn) => (
+    (Story) => (
       <Setup cameraPosition={new THREE.Vector3(0, 0, 10)} controls={false}>
-        {storyFn()}
+        <Story />
       </Setup>
     ),
   ],
-}
+  args: {
+    maxPitch: 0.05,
+    maxRoll: 0.05,
+    maxYaw: 0.05,
+    pitchFrequency: 0.8,
+    rollFrequency: 0.8,
+    yawFrequency: 0.8,
+  },
+  argTypes: {
+    maxPitch: { control: { type: 'range', min: 0, max: 1, step: 0.05 } },
+    maxRoll: { control: { type: 'range', min: 0, max: 1, step: 0.05 } },
+    maxYaw: { control: { type: 'range', min: 0, max: 1, step: 0.05 } },
+    pitchFrequency: { control: { type: 'range', min: 0, max: 10, step: 0.1 } },
+    rollFrequency: { control: { type: 'range', min: 0, max: 10, step: 0.1 } },
+    yawFrequency: { control: { type: 'range', min: 0, max: 10, step: 0.1 } },
+  },
+} satisfies Meta<typeof CameraShake>
 
-function Scene() {
-  const cube = React.useRef<THREE.Mesh>()
+type Story = StoryObj<typeof CameraShake>
 
-  useFrame(() => {
+function CameraShakeScene1(props: ComponentProps<typeof CameraShake>) {
+  const cube = React.useRef<THREE.Mesh>(null)
+
+  useFrame(({ clock }) => {
     if (cube.current) {
-      cube.current.rotation.x = cube.current.rotation.y += 0.01
+      // Use clock time for deterministic rotation
+      const t = clock.getElapsedTime()
+      cube.current.rotation.x = cube.current.rotation.y = t * 0.3
     }
   })
 
   return (
     <>
+      <CameraShake {...props} />
+
       <mesh ref={cube}>
         <boxGeometry args={[2, 2, 2]} />
         <meshStandardMaterial wireframe color="white" />
@@ -78,28 +66,23 @@ function Scene() {
   )
 }
 
-export const CameraShakeStory = ({ ...args }) => (
-  <>
-    <CameraShake {...args} />
-    <Scene />
-  </>
-)
+export const CameraShakeSt1 = {
+  render: (args) => <CameraShakeScene1 {...args} />,
+  name: 'Default',
+} satisfies Story
 
-CameraShakeStory.args = args
-CameraShakeStory.argTypes = argTypes
-CameraShakeStory.storyName = 'Default'
-
-export const CameraShakeWithOrbitControlsStory = ({ ...args }) => {
+function CameraShakeScene2(props: ComponentProps<typeof CameraShake>) {
   const controlsRef = React.useRef<OrbitControlsImpl>(null)
   return (
     <>
       <OrbitControls ref={controlsRef} />
-      <CameraShake {...args} controls={controlsRef} />
-      <Scene />
+      <CameraShake {...props} />
+      <CameraShakeScene1 />
     </>
   )
 }
 
-CameraShakeWithOrbitControlsStory.args = args
-CameraShakeWithOrbitControlsStory.argTypes = argTypes
-CameraShakeWithOrbitControlsStory.storyName = 'With OrbitControls'
+export const CameraShakeSt2 = {
+  render: (args) => <CameraShakeScene2 {...args} />,
+  name: 'With OrbitControls',
+} satisfies Story

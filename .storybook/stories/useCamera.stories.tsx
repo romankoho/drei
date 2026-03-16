@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { useFrame, useThree, createPortal } from '@react-three/fiber'
+import { useFrame, useThree, createPortal, ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Setup } from '../Setup'
 
@@ -9,12 +10,20 @@ import { useCamera, OrthographicCamera } from '../../src'
 export default {
   title: 'Misc/useCamera',
   component: UseCameraScene,
-  decorators: [(storyFn) => <Setup cameraPosition={new THREE.Vector3(0, 0, 5)}>{storyFn()}</Setup>],
-}
+  decorators: [
+    (Story) => (
+      <Setup cameraPosition={new THREE.Vector3(0, 0, 5)}>
+        <Story />
+      </Setup>
+    ),
+  ],
+} satisfies Meta<typeof UseCameraScene>
+
+type Story = StoryObj<typeof UseCameraScene>
 
 function UseCameraScene() {
-  const virtualCam = React.useRef<THREE.Camera>(null!)
-  const ref = React.useRef<THREE.Mesh>()
+  const virtualCam = React.useRef<THREE.OrthographicCamera>(null!)
+  const ref = React.useRef<THREE.Mesh>(null)
 
   const [hover, setHover] = React.useState<null | number>(null)
 
@@ -42,7 +51,7 @@ function UseCameraScene() {
   }, 1)
 
   const handlePointerOut = () => setHover(null)
-  const handlePointerMove = (e: THREE.Event) => setHover(Math.floor(e.faceIndex ?? 0 / 2))
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => setHover(Math.floor(e.faceIndex ?? 0 / 2))
   return createPortal(
     <>
       <OrthographicCamera ref={virtualCam} makeDefault={false} position={[0, 0, 100]} zoom={2} />
@@ -54,15 +63,14 @@ function UseCameraScene() {
         <boxGeometry args={[60, 60, 60]} />
       </mesh>
 
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={0.5} />
+      <ambientLight intensity={0.5 * Math.PI} />
+      <pointLight position={[10, 10, 10]} intensity={0.5 * Math.PI} decay={0} />
     </>,
     virtualScene
-  ) as unknown as JSX.Element
+  )
 }
 
-export const UseCameraSt = () => <UseCameraScene />
-
-UseCameraSt.story = {
+export const UseCameraSt = {
+  render: () => <UseCameraScene />,
   name: 'Default',
-}
+} satisfies Story

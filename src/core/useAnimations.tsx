@@ -3,7 +3,7 @@ import { Object3D, AnimationClip, AnimationAction, AnimationMixer } from 'three'
 import { useFrame } from '@react-three/fiber'
 
 type Api<T extends AnimationClip> = {
-  ref: React.MutableRefObject<Object3D | undefined | null>
+  ref: React.RefObject<Object3D | undefined | null>
   clips: AnimationClip[]
   mixer: AnimationMixer
   names: T['name'][]
@@ -12,11 +12,10 @@ type Api<T extends AnimationClip> = {
 
 export function useAnimations<T extends AnimationClip>(
   clips: T[],
-  root?: React.MutableRefObject<Object3D | undefined | null> | Object3D
+  root?: React.RefObject<Object3D | undefined | null> | Object3D
 ): Api<T> {
-  const ref = React.useRef<Object3D>()
+  const ref = React.useRef<Object3D>(null)
   const [actualRef] = React.useState(() => (root ? (root instanceof Object3D ? { current: root } : root) : ref))
-  // eslint-disable-next-line prettier/prettier
   const [mixer] = React.useState(() => new AnimationMixer(undefined as unknown as Object3D))
   React.useLayoutEffect(() => {
     if (root) actualRef.current = root instanceof Object3D ? root : root.current

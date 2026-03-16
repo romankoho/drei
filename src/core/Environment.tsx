@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useThree, createPortal, useFrame, extend, Object3DNode, Euler, applyProps } from '@react-three/fiber'
+import { useThree, createPortal, useFrame, extend, Euler, applyProps, ThreeElement } from '@react-three/fiber'
 import { WebGLCubeRenderTarget, Texture, Scene, CubeCamera, HalfFloatType, CubeTexture } from 'three'
 import { GroundProjectedEnv as GroundProjectedEnvImpl } from 'three-stdlib'
 import { PresetsType } from '../helpers/environment-assets'
@@ -23,7 +23,7 @@ export type EnvironmentProps = {
 
   map?: Texture
   preset?: PresetsType
-  scene?: Scene | React.MutableRefObject<Scene>
+  scene?: Scene | React.RefObject<Scene>
   ground?:
     | boolean
     | {
@@ -33,19 +33,19 @@ export type EnvironmentProps = {
       }
 } & EnvironmentLoaderProps
 
-const isRef = (obj: any): obj is React.MutableRefObject<Scene> => obj.current && obj.current.isScene
-const resolveScene = (scene: Scene | React.MutableRefObject<Scene>) => (isRef(scene) ? scene.current : scene)
+const isRef = (obj: any): obj is React.RefObject<Scene> => obj.current && obj.current.isScene
+const resolveScene = (scene: Scene | React.RefObject<Scene>) => (isRef(scene) ? scene.current : scene)
 
 function setEnvProps(
   background: boolean | 'only',
-  scene: Scene | React.MutableRefObject<Scene> | undefined,
+  scene: Scene | React.RefObject<Scene> | undefined,
   defaultScene: Scene,
   texture: Texture,
   sceneProps: Partial<EnvironmentProps> = {}
 ) {
   // defaults
   sceneProps = {
-    backgroundBlurriness: sceneProps.blur ?? 0,
+    backgroundBlurriness: 0,
     backgroundIntensity: 1,
     backgroundRotation: [0, 0, 0],
     environmentIntensity: 1,
@@ -100,22 +100,29 @@ export function EnvironmentCube({
 }: EnvironmentProps) {
   const texture = useEnvironment(rest)
   const defaultScene = useThree((state) => state.scene)
+
   React.useLayoutEffect(() => {
     return setEnvProps(background, scene, defaultScene, texture, {
-      blur,
-      backgroundBlurriness,
+      backgroundBlurriness: blur ?? backgroundBlurriness,
       backgroundIntensity,
       backgroundRotation,
       environmentIntensity,
       environmentRotation,
     })
   })
+
+  React.useEffect(() => {
+    return () => {
+      texture.dispose()
+    }
+  }, [texture])
+
   return null
 }
 
 export function EnvironmentPortal({
   children,
-  near = 1,
+  near = 0.1,
   far = 1000,
   resolution = 256,
   frames = 1,
@@ -143,11 +150,21 @@ export function EnvironmentPortal({
     return fbo
   }, [resolution])
 
+  React.useEffect(() => {
+    return () => {
+      fbo.dispose()
+    }
+  }, [fbo])
+
   React.useLayoutEffect(() => {
-    if (frames === 1) camera.current.update(gl, virtualScene)
+    if (frames === 1) {
+      const autoClear = gl.autoClear
+      gl.autoClear = true
+      camera.current.update(gl, virtualScene)
+      gl.autoClear = autoClear
+    }
     return setEnvProps(background, scene, defaultScene, fbo.texture, {
-      blur,
-      backgroundBlurriness,
+      backgroundBlurriness: blur ?? backgroundBlurriness,
       backgroundIntensity,
       backgroundRotation,
       environmentIntensity,
@@ -158,7 +175,10 @@ export function EnvironmentPortal({
   let count = 1
   useFrame(() => {
     if (frames === Infinity || count < frames) {
+      const autoClear = gl.autoClear
+      gl.autoClear = true
       camera.current.update(gl, virtualScene)
+      gl.autoClear = autoClear
       count++
     }
   })
@@ -182,11 +202,9 @@ export function EnvironmentPortal({
   )
 }
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      groundProjectedEnvImpl: Object3DNode<GroundProjectedEnvImpl, typeof GroundProjectedEnvImpl>
-    }
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    groundProjectedEnvImpl: ThreeElement<typeof GroundProjectedEnvImpl>
   }
 }
 
@@ -195,6 +213,12 @@ function EnvironmentGround(props: EnvironmentProps) {
   const texture = props.map || textureDefault
 
   React.useMemo(() => extend({ GroundProjectedEnvImpl }), [])
+
+  React.useEffect(() => {
+    return () => {
+      textureDefault.dispose()
+    }
+  }, [textureDefault])
 
   const args = React.useMemo<[CubeTexture | Texture]>(() => [texture], [texture])
   const height = (props.ground as any)?.height

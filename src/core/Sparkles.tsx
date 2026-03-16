@@ -1,67 +1,72 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { PointsProps, useThree, useFrame, extend, Node } from '@react-three/fiber'
-import { shaderMaterial } from './shaderMaterial'
+import { useThree, useFrame, extend, ThreeElement, ThreeElements } from '@react-three/fiber'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 import { version } from '../helpers/constants'
 
-interface Props {
-  /** Number of particles (default: 100) */
-  count?: number
-  /** Speed of particles (default: 1) */
-  speed?: number | Float32Array
-  /** Opacity of particles (default: 1) */
-  opacity?: number | Float32Array
-  /** Color of particles (default: 100) */
-  color?: THREE.ColorRepresentation | Float32Array
-  /** Size of particles (default: randomized between 0 and 1) */
-  size?: number | Float32Array
-  /** The space the particles occupy (default: 1) */
-  scale?: number | [number, number, number] | THREE.Vector3
-  /** Movement factor (default: 1) */
-  noise?: number | [number, number, number] | THREE.Vector3 | Float32Array
+class SparklesImplMaterial extends THREE.ShaderMaterial {
+  constructor() {
+    super({
+      uniforms: {
+        time: { value: 0 },
+        pixelRatio: { value: 1 },
+      },
+      vertexShader: /* glsl */ `
+        uniform float pixelRatio;
+        uniform float time;
+        attribute float size;  
+        attribute float speed;  
+        attribute float opacity;
+        attribute vec3 noise;
+        attribute vec3 color;
+        varying vec3 vColor;
+        varying float vOpacity;
+
+        void main() {
+          vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+          modelPosition.y += sin(time * speed + modelPosition.x * noise.x * 100.0) * 0.2;
+          modelPosition.z += cos(time * speed + modelPosition.x * noise.y * 100.0) * 0.2;
+          modelPosition.x += cos(time * speed + modelPosition.x * noise.z * 100.0) * 0.2;
+          vec4 viewPosition = viewMatrix * modelPosition;
+          vec4 projectionPostion = projectionMatrix * viewPosition;
+          gl_Position = projectionPostion;
+          gl_PointSize = size * 25. * pixelRatio;
+          gl_PointSize *= (1.0 / - viewPosition.z);
+          vColor = color;
+          vOpacity = opacity;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec3 vColor;
+        varying float vOpacity;
+        void main() {
+          float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+          float strength = 0.05 / distanceToCenter - 0.1;
+          gl_FragColor = vec4(vColor, strength * vOpacity);
+          #include <tonemapping_fragment>
+          #include <${version >= 154 ? 'colorspace_fragment' : 'encodings_fragment'}>
+        }
+      `,
+    })
+  }
+
+  get time() {
+    return this.uniforms.time.value as number
+  }
+  set time(value) {
+    this.uniforms.time.value = value
+  }
+  get pixelRatio() {
+    return this.uniforms.pixelRatio.value as number
+  }
+  set pixelRatio(value) {
+    this.uniforms.pixelRatio.value = value
+  }
 }
 
-const SparklesImplMaterial = /* @__PURE__ */ shaderMaterial(
-  { time: 0, pixelRatio: 1 },
-  ` uniform float pixelRatio;
-    uniform float time;
-    attribute float size;  
-    attribute float speed;  
-    attribute float opacity;
-    attribute vec3 noise;
-    attribute vec3 color;
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      vec4 modelPosition = modelMatrix * vec4(position, 1.0);
-      modelPosition.y += sin(time * speed + modelPosition.x * noise.x * 100.0) * 0.2;
-      modelPosition.z += cos(time * speed + modelPosition.x * noise.y * 100.0) * 0.2;
-      modelPosition.x += cos(time * speed + modelPosition.x * noise.z * 100.0) * 0.2;
-      vec4 viewPosition = viewMatrix * modelPosition;
-      vec4 projectionPostion = projectionMatrix * viewPosition;
-      gl_Position = projectionPostion;
-      gl_PointSize = size * 25. * pixelRatio;
-      gl_PointSize *= (1.0 / - viewPosition.z);
-      vColor = color;
-      vOpacity = opacity;
-    }`,
-  ` varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-      float strength = 0.05 / distanceToCenter - 0.1;
-      gl_FragColor = vec4(vColor, strength * vOpacity);
-      #include <tonemapping_fragment>
-      #include <${version >= 154 ? 'colorspace_fragment' : 'encodings_fragment'}>
-    }`
-)
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      sparklesImplMaterial: Node<any, any>
-    }
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    sparklesImplMaterial: ThreeElement<typeof SparklesImplMaterial>
   }
 }
 
@@ -101,9 +106,26 @@ function usePropAsIsOrAsAttribute<T extends any>(
   }, [prop])
 }
 
-export const Sparkles: ForwardRefComponent<Props & PointsProps, THREE.Points> = /* @__PURE__ */ React.forwardRef<
+export type SparklesProps = Omit<ThreeElements['points'], 'ref'> & {
+  /** Number of particles (default: 100) */
+  count?: number
+  /** Speed of particles (default: 1) */
+  speed?: number | Float32Array
+  /** Opacity of particles (default: 1) */
+  opacity?: number | Float32Array
+  /** Color of particles (default: 100) */
+  color?: THREE.ColorRepresentation | Float32Array
+  /** Size of particles (default: randomized between 0 and 1) */
+  size?: number | Float32Array
+  /** The space the particles occupy (default: 1) */
+  scale?: number | [number, number, number] | THREE.Vector3
+  /** Movement factor (default: 1) */
+  noise?: number | [number, number, number] | THREE.Vector3 | Float32Array
+}
+
+export const Sparkles: ForwardRefComponent<SparklesProps, THREE.Points> = /* @__PURE__ */ React.forwardRef<
   THREE.Points,
-  Props & PointsProps
+  SparklesProps
 >(({ noise = 1, count = 100, speed = 1, opacity = 1, scale = 1, size, color, children, ...props }, forwardRef) => {
   React.useMemo(() => extend({ SparklesImplMaterial }), [])
   const ref = React.useRef<THREE.Points>(null!)

@@ -5,27 +5,14 @@ import tunnel from 'tunnel-rat'
 
 const isOrthographicCamera = (def: any): def is THREE.OrthographicCamera =>
   def && (def as THREE.OrthographicCamera).isOrthographicCamera
-const col = new THREE.Color()
-const tracked = tunnel()
+const col = /* @__PURE__ */ new THREE.Color()
+const tracked = /* @__PURE__ */ tunnel()
 
-/**
- * In `@react-three/fiber` after `v8.0.0` but prior to `v8.1.0`, `state.size` contained only dimension
- * information. After `v8.1.0`, position information (`top`, `left`) was added
- *
- * @todo remove this when drei supports v9 and up
- */
-type LegacyCanvasSize = {
-  height: number
-  width: number
-}
-
-type CanvasSize = LegacyCanvasSize & {
+type CanvasSize = {
   top: number
   left: number
-}
-
-function isNonLegacyCanvasSize(size: Record<string, number>): size is CanvasSize {
-  return 'top' in size
+  height: number
+  width: number
 }
 
 export type ContainerProps = {
@@ -34,12 +21,12 @@ export type ContainerProps = {
   index: number
   children?: React.ReactNode
   frames: number
-  rect: React.MutableRefObject<DOMRect>
+  rect: React.RefObject<DOMRect>
   /**
    * @deprecated You can use inline Views now, see: https://github.com/pmndrs/drei/pull/1784
    */
-  track?: React.MutableRefObject<HTMLElement>
-  canvasSize: LegacyCanvasSize | CanvasSize
+  track?: React.RefObject<HTMLElement>
+  canvasSize: CanvasSize
 }
 
 export type ViewProps = {
@@ -62,37 +49,42 @@ export type ViewProps = {
   /** The tracking element, the view will be cut according to its whereabouts
    * @deprecated You can use inline Views now, see: https://github.com/pmndrs/drei/pull/1784
    */
-  track?: React.MutableRefObject<HTMLElement>
+  track?: React.RefObject<HTMLElement>
 }
 
-function computeContainerPosition(canvasSize: LegacyCanvasSize | CanvasSize, trackRect: DOMRect) {
+function computeContainerPosition(canvasSize: CanvasSize, trackRect: DOMRect) {
   const { right, top, left: trackLeft, bottom: trackBottom, width, height } = trackRect
   const isOffscreen = trackRect.bottom < 0 || top > canvasSize.height || right < 0 || trackRect.left > canvasSize.width
-  if (isNonLegacyCanvasSize(canvasSize)) {
-    const canvasBottom = canvasSize.top + canvasSize.height
-    const bottom = canvasBottom - trackBottom
-    const left = trackLeft - canvasSize.left
-    return { position: { width, height, left, top, bottom, right }, isOffscreen }
-  }
-  // Fall back on old behavior if r3f < 8.1.0
-  const bottom = canvasSize.height - trackBottom
-  return { position: { width, height, top, left: trackLeft, bottom, right }, isOffscreen }
+
+  const canvasBottom = canvasSize.top + canvasSize.height
+  const bottom = canvasBottom - trackBottom
+  const left = trackLeft - canvasSize.left
+  return { position: { width, height, left, top, bottom, right }, isOffscreen }
 }
 
 function prepareSkissor(
   state: RootState,
-  { left, bottom, width, height }: LegacyCanvasSize & { top: number; left: number } & { bottom: number; right: number }
+  {
+    left,
+    bottom,
+    width,
+    height,
+  }: { width: number; height: number; top: number; left: number; bottom: number; right: number }
 ) {
   let autoClear
   const aspect = width / height
   if (isOrthographicCamera(state.camera)) {
-    if (
-      state.camera.left !== width / -2 ||
-      state.camera.right !== width / 2 ||
-      state.camera.top !== height / 2 ||
-      state.camera.bottom !== height / -2
-    ) {
-      Object.assign(state.camera, { left: width / -2, right: width / 2, top: height / 2, bottom: height / -2 })
+    if (!state.camera.manual) {
+      if (
+        state.camera.left !== width / -2 ||
+        state.camera.right !== width / 2 ||
+        state.camera.top !== height / 2 ||
+        state.camera.bottom !== height / -2
+      ) {
+        Object.assign(state.camera, { left: width / -2, right: width / 2, top: height / 2, bottom: height / -2 })
+        state.camera.updateProjectionMatrix()
+      }
+    } else {
       state.camera.updateProjectionMatrix()
     }
   } else if (state.camera.aspect !== aspect) {
@@ -170,14 +162,6 @@ function Container({ visible = true, canvasSize, scene, index, children, frames,
     }
   }, [track])
 
-  React.useEffect(() => {
-    if (isNonLegacyCanvasSize(canvasSize)) return
-    console.warn(
-      'Detected @react-three/fiber canvas size does not include position information. <View /> may not work as expected. ' +
-        'Upgrade to @react-three/fiber ^8.1.0 for support.\n See https://github.com/pmndrs/drei/issues/944'
-    )
-  }, [])
-
   return (
     <>
       {children}
@@ -187,7 +171,7 @@ function Container({ visible = true, canvasSize, scene, index, children, frames,
   )
 }
 
-const CanvasView = React.forwardRef(
+const CanvasView = /* @__PURE__ */ React.forwardRef(
   (
     { track, visible = true, index = 1, id, style, className, frames = Infinity, children, ...props }: ViewProps,
     fref: React.ForwardedRef<THREE.Group>
@@ -250,7 +234,7 @@ const CanvasView = React.forwardRef(
   }
 )
 
-const HtmlView = React.forwardRef(
+const HtmlView = /* @__PURE__ */ React.forwardRef(
   (
     {
       as: El = 'div',
@@ -283,17 +267,21 @@ const HtmlView = React.forwardRef(
   }
 )
 
-export type ViewportProps = { Port: () => JSX.Element } & React.ForwardRefExoticComponent<
+export type ViewportProps = { Port: () => React.JSX.Element } & React.ForwardRefExoticComponent<
   ViewProps & React.RefAttributes<HTMLElement | THREE.Group>
 >
 
-export const View = React.forwardRef((props: ViewProps, fref: React.ForwardedRef<HTMLElement | THREE.Group>) => {
-  // If we're inside a canvas we should be able to access the context store
-  const store = React.useContext(context)
-  // If that's not the case we render a tunnel
-  if (!store) return <HtmlView ref={fref as unknown as React.ForwardedRef<HTMLElement>} {...props} />
-  // Otherwise a plain canvas-view
-  else return <CanvasView ref={fref as unknown as React.ForwardedRef<THREE.Group>} {...props} />
-}) as ViewportProps
+export const View = /* @__PURE__ */ (() => {
+  const _View = React.forwardRef((props: ViewProps, fref: React.ForwardedRef<HTMLElement | THREE.Group>) => {
+    // If we're inside a canvas we should be able to access the context store
+    const store = React.useContext(context)
+    // If that's not the case we render a tunnel
+    if (!store) return <HtmlView ref={fref as unknown as React.ForwardedRef<HTMLElement>} {...props} />
+    // Otherwise a plain canvas-view
+    else return <CanvasView ref={fref as unknown as React.ForwardedRef<THREE.Group>} {...props} />
+  }) as ViewportProps
 
-View.Port = () => <tracked.Out />
+  _View.Port = () => <tracked.Out />
+
+  return _View
+})()

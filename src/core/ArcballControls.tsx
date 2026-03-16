@@ -1,14 +1,14 @@
-import { EventManager, ReactThreeFiber, useFrame, useThree } from '@react-three/fiber'
+import { EventManager, ReactThreeFiber, ThreeElement, useFrame, useThree } from '@react-three/fiber'
 import * as React from 'react'
 import { forwardRef, useEffect, useMemo } from 'react'
 import { ArcballControls as ArcballControlsImpl } from 'three-stdlib'
 
 import type { Event, OrthographicCamera, PerspectiveCamera } from 'three'
-import { ForwardRefComponent } from '../helpers/ts-utils'
+import { ForwardRefComponent, Overwrite } from '../helpers/ts-utils'
 
 export type ArcballControlsProps = Omit<
-  ReactThreeFiber.Overwrite<
-    ReactThreeFiber.Object3DNode<ArcballControlsImpl, typeof ArcballControlsImpl>,
+  Overwrite<
+    ThreeElement<typeof ArcballControlsImpl>,
     {
       target?: ReactThreeFiber.Vector3
       camera?: OrthographicCamera | PerspectiveCamera
@@ -20,7 +20,7 @@ export type ArcballControlsProps = Omit<
       onEnd?: (e?: Event) => void
     }
   >,
-  'ref'
+  'ref' | 'args'
 >
 
 export const ArcballControls: ForwardRefComponent<ArcballControlsProps, ArcballControlsImpl> =
@@ -67,6 +67,7 @@ export const ArcballControls: ForwardRefComponent<ArcballControlsProps, ArcballC
       useEffect(() => {
         if (makeDefault) {
           const old = get().controls
+          // @ts-ignore https://github.com/three-types/three-ts-types/pull/1398
           set({ controls })
           return () => set({ controls: old })
         }

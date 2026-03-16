@@ -1,32 +1,33 @@
 import * as React from 'react'
-import { useThree } from '@react-three/fiber'
+import { ThreeElements, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+
 export enum GradientType {
   Linear = 'linear',
   Radial = 'radial',
 }
 
-type Props = {
+export type GradientTextureProps = {
   stops: Array<number>
-  colors: Array<string>
+  colors: Array<THREE.ColorRepresentation>
   attach?: string
   size?: number
   width?: number
   type?: GradientType
   innerCircleRadius?: number
   outerCircleRadius?: string | number
-} & JSX.IntrinsicElements['texture']
+} & Omit<ThreeElements['texture'], 'args' | 'type'>
 
 export function GradientTexture({
   stops,
   colors,
   size = 1024,
   width = 16,
-  //@ts-ignore - weird error about type never, although the type is clearly defined
   type = GradientType.Linear,
   innerCircleRadius = 0,
   outerCircleRadius = 'auto',
   ...props
-}: Props) {
+}: GradientTextureProps) {
   const gl = useThree((state: any) => state.gl)
   const canvas: HTMLCanvasElement = React.useMemo(() => {
     const canvas = document.createElement('canvas')
@@ -53,9 +54,10 @@ export function GradientTexture({
       )
     }
 
+    const tempColor = new THREE.Color() // reuse instance for performance
     let i = stops.length
     while (i--) {
-      gradient.addColorStop(stops[i], colors[i])
+      gradient.addColorStop(stops[i], tempColor.set(colors[i]).getStyle())
     }
     context.save()
     context.fillStyle = gradient
@@ -65,6 +67,5 @@ export function GradientTexture({
     return canvas
   }, [stops])
 
-  // @ts-ignore ????
   return <canvasTexture colorSpace={gl.outputColorSpace} args={[canvas]} attach="map" {...props} />
 }

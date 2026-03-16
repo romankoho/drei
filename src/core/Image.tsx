@@ -1,12 +1,12 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { Color, extend, useThree } from '@react-three/fiber'
+import { Color, extend, ThreeElements, useThree } from '@react-three/fiber'
 import { shaderMaterial } from './shaderMaterial'
-import { useTexture } from './useTexture'
+import { useTexture } from './Texture'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 import { version } from '../helpers/constants'
 
-export type ImageProps = Omit<JSX.IntrinsicElements['mesh'], 'scale'> & {
+export type ImageProps = Omit<ThreeElements['mesh'], 'scale'> & {
   segments?: number
   scale?: number | [number, number]
   color?: Color
@@ -19,7 +19,7 @@ export type ImageProps = Omit<JSX.IntrinsicElements['mesh'], 'scale'> & {
   side?: THREE.Side
 } & ({ texture: THREE.Texture; url?: never } | { texture?: never; url: string }) // {texture: THREE.Texture} XOR {url: string}
 
-type ImageMaterialType = JSX.IntrinsicElements['shaderMaterial'] & {
+type ImageMaterialType = ThreeElements['shaderMaterial'] & {
   scale?: number[]
   imageBounds?: number[]
   radius?: number
@@ -30,11 +30,9 @@ type ImageMaterialType = JSX.IntrinsicElements['shaderMaterial'] & {
   grayscale?: number
 }
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      imageMaterial: ImageMaterialType
-    }
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    imageMaterial: ImageMaterialType
   }
 }
 
@@ -125,8 +123,8 @@ const ImageBase: ForwardRefComponent<Omit<ImageProps, 'url'>, THREE.Mesh> = /* @
       transparent,
       side,
       ...props
-    }: Omit<ImageProps, 'url'>,
-    fref: React.ForwardedRef<THREE.Mesh>
+    },
+    fref
   ) => {
     extend({ ImageMaterial: ImageMaterialImpl })
     const ref = React.useRef<THREE.Mesh>(null!)
@@ -147,7 +145,7 @@ const ImageBase: ForwardRefComponent<Omit<ImageProps, 'url'>, THREE.Mesh> = /* @
           planeBounds[1] * ref.current.geometry.parameters.height
         )
       }
-    }, [])
+    }, [planeBounds[0], planeBounds[1]])
     return (
       <mesh ref={ref} scale={Array.isArray(scale) ? [...scale, 1] : scale} {...props}>
         <planeGeometry args={[1, 1, segments, segments]} />

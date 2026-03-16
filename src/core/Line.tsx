@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Vector2, Vector3, Vector4, Color, ColorRepresentation } from 'three'
-import { ReactThreeFiber, useThree } from '@react-three/fiber'
+import { useThree, Vector2 as FiberVector2, Vector3 as FiberVector3, ThreeElement } from '@react-three/fiber'
 import {
   LineGeometry,
   LineSegmentsGeometry,
@@ -11,16 +11,19 @@ import {
 } from 'three-stdlib'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 
-export type LineProps = {
-  points: Array<Vector3 | Vector2 | [number, number, number] | [number, number] | number>
-  vertexColors?: Array<Color | [number, number, number] | [number, number, number, number]>
-  lineWidth?: number
-  segments?: boolean
-} & Omit<LineMaterialParameters, 'vertexColors' | 'color'> &
-  Omit<ReactThreeFiber.Object3DNode<Line2, typeof Line2>, 'args'> &
-  Omit<ReactThreeFiber.Object3DNode<LineMaterial, [LineMaterialParameters]>, 'color' | 'vertexColors' | 'args'> & {
-    color?: ColorRepresentation
-  }
+export type LineProps = Omit<
+  {
+    points: ReadonlyArray<FiberVector2 | FiberVector3>
+    vertexColors?: ReadonlyArray<Color | [number, number, number] | [number, number, number, number]>
+    lineWidth?: number
+    segments?: boolean
+  } & Omit<LineMaterialParameters, 'vertexColors' | 'color'> &
+    Omit<ThreeElement<typeof Line2>, 'ref' | 'args'> &
+    Omit<ThreeElement<typeof LineMaterial>, 'ref' | 'color' | 'vertexColors' | 'args'> & {
+      color?: ColorRepresentation
+    },
+  'ref'
+>
 
 export const Line: ForwardRefComponent<LineProps, Line2 | LineSegments2> = /* @__PURE__ */ React.forwardRef<
   Line2 | LineSegments2,
@@ -37,12 +40,12 @@ export const Line: ForwardRefComponent<LineProps, Line2 | LineSegments2> = /* @_
       return p instanceof Vector3 || p instanceof Vector4
         ? [p.x, p.y, p.z]
         : p instanceof Vector2
-        ? [p.x, p.y, 0]
-        : isArray && p.length === 3
-        ? [p[0], p[1], p[2]]
-        : isArray && p.length === 2
-        ? [p[0], p[1], 0]
-        : p
+          ? [p.x, p.y, 0]
+          : isArray && p.length === 3
+            ? [p[0], p[1], p[2]]
+            : isArray && p.length === 2
+              ? [p[0], p[1], 0]
+              : p
     })
 
     geom.setPositions(pValues.flat())
@@ -72,7 +75,10 @@ export const Line: ForwardRefComponent<LineProps, Line2 | LineSegments2> = /* @_
   }, [dashed, lineMaterial])
 
   React.useEffect(() => {
-    return () => lineGeom.dispose()
+    return () => {
+      lineGeom.dispose()
+      lineMaterial.dispose()
+    }
   }, [lineGeom])
 
   return (

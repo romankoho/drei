@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Mesh, Shape, ExtrudeGeometry } from 'three'
 import { ForwardRefComponent, NamedArrayTuple } from '../helpers/ts-utils'
 import { toCreasedNormals } from 'three-stdlib'
+import { ThreeElements } from '@react-three/fiber'
 
 const eps = 0.00001
 
@@ -15,17 +16,51 @@ function createShape(width: number, height: number, radius0: number) {
   return shape
 }
 
-type Props = {
+export type RoundedBoxProps = {
   args?: NamedArrayTuple<(width?: number, height?: number, depth?: number) => void>
   radius?: number
   smoothness?: number
   bevelSegments?: number
   steps?: number
   creaseAngle?: number
-} & Omit<JSX.IntrinsicElements['mesh'], 'args'>
+} & Omit<ThreeElements['mesh'], 'ref' | 'args'>
 
-export const RoundedBox: ForwardRefComponent<Props, Mesh> = /* @__PURE__ */ React.forwardRef<Mesh, Props>(
-  function RoundedBox(
+export type RoundedBoxGeometryProps = Omit<RoundedBoxProps, 'children'> &
+  Omit<ThreeElements['extrudeGeometry'], 'args' | 'ref'>
+
+export const RoundedBox: ForwardRefComponent<RoundedBoxProps, Mesh> = /* @__PURE__ */ React.forwardRef<
+  Mesh,
+  RoundedBoxProps
+>(function RoundedBox(
+  {
+    args: [width = 1, height = 1, depth = 1] = [],
+    radius = 0.05,
+    steps = 1,
+    smoothness = 4,
+    bevelSegments = 4,
+    creaseAngle = 0.4,
+    children,
+    ...rest
+  },
+  ref
+) {
+  return (
+    <mesh ref={ref} {...rest}>
+      <RoundedBoxGeometry
+        args={[width, height, depth]}
+        radius={radius}
+        steps={steps}
+        smoothness={smoothness}
+        bevelSegments={bevelSegments}
+        creaseAngle={creaseAngle}
+      />
+      {children}
+    </mesh>
+  )
+})
+
+export const RoundedBoxGeometry: ForwardRefComponent<RoundedBoxGeometryProps, ExtrudeGeometry> =
+  /* @__PURE__ */ React.forwardRef<ExtrudeGeometry, RoundedBoxGeometryProps>(function RoundedBoxGeometry(
     {
       args: [width = 1, height = 1, depth = 1] = [],
       radius = 0.05,
@@ -33,7 +68,6 @@ export const RoundedBox: ForwardRefComponent<Props, Mesh> = /* @__PURE__ */ Reac
       smoothness = 4,
       bevelSegments = 4,
       creaseAngle = 0.4,
-      children,
       ...rest
     },
     ref
@@ -49,7 +83,7 @@ export const RoundedBox: ForwardRefComponent<Props, Mesh> = /* @__PURE__ */ Reac
         bevelThickness: radius,
         curveSegments: smoothness,
       }),
-      [depth, radius, smoothness]
+      [depth, radius, smoothness, bevelSegments, steps]
     )
     const geomRef = React.useRef<ExtrudeGeometry>(null!)
 
@@ -58,13 +92,9 @@ export const RoundedBox: ForwardRefComponent<Props, Mesh> = /* @__PURE__ */ Reac
         geomRef.current.center()
         toCreasedNormals(geomRef.current, creaseAngle)
       }
-    }, [shape, params])
+    }, [shape, params, creaseAngle])
 
-    return (
-      <mesh ref={ref} {...rest}>
-        <extrudeGeometry ref={geomRef} args={[shape, params]} />
-        {children}
-      </mesh>
-    )
-  }
-)
+    React.useImperativeHandle(ref, () => geomRef.current)
+
+    return <extrudeGeometry ref={geomRef} args={[shape, params]} {...rest} />
+  })

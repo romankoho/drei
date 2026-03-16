@@ -1,13 +1,10 @@
-import { ReactThreeFiber, useFrame, useThree } from '@react-three/fiber'
+import { ReactThreeFiber, ThreeElement, useFrame, useThree } from '@react-three/fiber'
 import * as React from 'react'
 import * as THREE from 'three'
 import { DeviceOrientationControls as DeviceOrientationControlsImp } from 'three-stdlib'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 
-export type DeviceOrientationControlsProps = ReactThreeFiber.Object3DNode<
-  DeviceOrientationControlsImp,
-  typeof DeviceOrientationControlsImp
-> & {
+export type DeviceOrientationControlsProps = Omit<ThreeElement<typeof DeviceOrientationControlsImp>, 'ref' | 'args'> & {
   camera?: THREE.Camera
   onChange?: (e?: THREE.Event) => void
   makeDefault?: boolean
@@ -46,6 +43,7 @@ export const DeviceOrientationControls: ForwardRefComponent<
     React.useEffect(() => {
       if (makeDefault) {
         const old = get().controls
+        // @ts-ignore https://github.com/three-types/three-ts-types/pull/1398
         set({ controls })
         return () => set({ controls: old })
       }

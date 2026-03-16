@@ -1,20 +1,25 @@
 import { createPortal, useFrame } from '@react-three/fiber'
-import React, { useRef, useState } from 'react'
-import { Scene } from 'three'
+import React, { ComponentProps, useRef, useState } from 'react'
+import * as THREE from 'three'
+import { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Setup } from '../Setup'
-import { Box, CameraControls, PerspectiveCamera, Plane, useFBO } from '../../src'
+import { Box, CameraControls, CameraControlsImpl, PerspectiveCamera, Plane, useFBO } from '../../src'
 
-import type { Camera } from 'three'
-import type { CameraControlsProps } from '../../src'
+export default {
+  title: 'Controls/CameraControls',
+  component: CameraControls,
+} satisfies Meta<typeof CameraControls>
 
-const args = {}
+type Story = StoryObj<typeof CameraControls>
 
-export const CameraControlsStory = (props: CameraControlsProps) => {
-  const cameraControlRef = useRef<CameraControls | null>(null)
+//
+
+function CameraControlsScene1(props: ComponentProps<typeof CameraControls>) {
+  const cameraControlRef = useRef<CameraControls>(null)
 
   return (
-    <>
+    <Setup controls={false}>
       <CameraControls ref={cameraControlRef} {...props} />
       <Box
         onClick={() => {
@@ -23,27 +28,25 @@ export const CameraControlsStory = (props: CameraControlsProps) => {
       >
         <meshBasicMaterial wireframe />
       </Box>
-    </>
+    </Setup>
   )
 }
 
-CameraControlsStory.args = args
-CameraControlsStory.storyName = 'Default'
+export const CameraControlsSt1 = {
+  render: (args) => <CameraControlsScene1 {...args} />,
+  name: 'Default',
+} satisfies Story
 
-export default {
-  title: 'Controls/CameraControls',
-  component: CameraControls,
-  decorators: [(storyFn) => <Setup controls={false}>{storyFn()}</Setup>],
-}
+//
 
-const CustomCamera = (props: CameraControlsProps) => {
+const CameraControlsScene2 = (props: ComponentProps<typeof CameraControls>) => {
   /**
    * we will render our scene in a render target and use it as a map.
    */
   const fbo = useFBO(400, 400)
-  const virtualCamera = useRef<CameraControls['camera']>()
-  const [virtualScene] = useState(() => new Scene())
-  const cameraControlRef = useRef<CameraControls | null>(null)
+  const virtualCamera = useRef<THREE.PerspectiveCamera>(null!)
+  const [virtualScene] = useState(() => new THREE.Scene())
+  const cameraControlRef = useRef<CameraControls>(null!)
 
   useFrame(({ gl }) => {
     if (virtualCamera.current) {
@@ -83,7 +86,79 @@ const CustomCamera = (props: CameraControlsProps) => {
   )
 }
 
-export const CustomCameraStory = (props: CameraControlsProps) => <CustomCamera {...props} />
+export const CameraControlsSt2 = {
+  render: (args) => (
+    <Setup controls={false}>
+      <CameraControlsScene2 {...args} />
+    </Setup>
+  ),
+  name: 'Custom Camera',
+} satisfies Story
 
-CustomCameraStory.args = args
-CustomCameraStory.storyName = 'Custom Camera'
+//
+
+function CameraControlsScene3(props: ComponentProps<typeof CameraControls>) {
+  const cameraControlRef = useRef<CameraControls>(null)
+
+  return (
+    <>
+      <CameraControls
+        ref={cameraControlRef}
+        // {...props}
+        // onWake={() => console.log('wake')}
+        // onSleep={() => console.log('sleep')}
+      />
+      <Box
+        onClick={() => {
+          cameraControlRef.current?.rotate(Math.PI / 4, 0, true)
+        }}
+      >
+        <meshBasicMaterial wireframe />
+      </Box>
+    </>
+  )
+}
+
+export const CameraControlsSt3 = {
+  render: (args) => (
+    <Setup
+      controls={false}
+      frameloop="demand"
+      //
+    >
+      <CameraControlsScene3 {...args} />
+    </Setup>
+  ),
+  name: 'frameloop="demand"',
+} satisfies Story
+
+//
+
+function CameraControlsScene4(props: ComponentProps<typeof CameraControls>) {
+  const cameraControlRef = useRef<CameraControls>(null)
+
+  return (
+    <Setup controls={false}>
+      <CameraControls ref={cameraControlRef} {...props} />
+      <Box
+        onClick={() => {
+          cameraControlRef.current?.rotate(Math.PI / 4, 0, true)
+        }}
+      >
+        <meshBasicMaterial wireframe />
+      </Box>
+    </Setup>
+  )
+}
+
+class MyCameraControls extends CameraControlsImpl {
+  override rotate(...args: Parameters<CameraControlsImpl['rotate']>) {
+    console.log('rotate', ...args)
+    return super.rotate(...args)
+  }
+}
+
+export const CameraControlsSt4 = {
+  render: (args) => <CameraControlsScene4 impl={MyCameraControls} {...args} />,
+  name: 'Subclass',
+} satisfies Story

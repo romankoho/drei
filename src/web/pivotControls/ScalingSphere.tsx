@@ -53,6 +53,7 @@ export const ScalingSphere: React.FC<{ direction: THREE.Vector3; axis: 0 | 1 | 2
     axisColors,
     hoveredColor,
     opacity,
+    renderOrder,
     onDragStart,
     onDrag,
     onDragEnd,
@@ -60,8 +61,7 @@ export const ScalingSphere: React.FC<{ direction: THREE.Vector3; axis: 0 | 1 | 2
   } = React.useContext(context)
 
   const size = useThree((state) => state.size)
-  // @ts-expect-error new in @react-three/fiber@7.0.5
-  const camControls = useThree((state) => state.controls) as { enabled: boolean }
+  const camControls = useThree((state) => state.controls) as unknown as { enabled: boolean } | undefined
   const divRef = React.useRef<HTMLDivElement>(null!)
   const objRef = React.useRef<THREE.Group>(null!)
   const meshRef = React.useRef<THREE.Mesh>(null!)
@@ -209,7 +209,7 @@ export const ScalingSphere: React.FC<{ direction: THREE.Vector3; axis: 0 | 1 | 2
             />
           </Html>
         )}
-        <mesh ref={meshRef} position={[0, position, 0]} renderOrder={500} userData={userData}>
+        <mesh ref={meshRef} position={[0, position, 0]} renderOrder={renderOrder} userData={userData}>
           <sphereGeometry args={[radius, 12, 12]} />
           <meshBasicMaterial
             transparent

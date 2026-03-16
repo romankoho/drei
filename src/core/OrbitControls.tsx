@@ -1,16 +1,18 @@
-import { EventManager, ReactThreeFiber, useFrame, useThree } from '@react-three/fiber'
+import { EventManager, ReactThreeFiber, ThreeElement, useFrame, useThree } from '@react-three/fiber'
 import * as React from 'react'
-import type { Camera, Event, OrthographicCamera, PerspectiveCamera } from 'three'
+import { Camera, Event, OrthographicCamera, PerspectiveCamera } from 'three'
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { ForwardRefComponent } from '../helpers/ts-utils'
+import { ForwardRefComponent, Overwrite } from '../helpers/ts-utils'
 
-export type OrbitControlsChangeEvent = Event & {
-  target: EventTarget & { object: Camera }
-}
+type ExtractCallback<T, E extends string> = T extends { addEventListener(event: E, callback: infer C): void }
+  ? C
+  : never
+
+export type OrbitControlsChangeEvent = Parameters<ExtractCallback<OrbitControlsImpl, 'change'>>[0]
 
 export type OrbitControlsProps = Omit<
-  ReactThreeFiber.Overwrite<
-    ReactThreeFiber.Object3DNode<OrbitControlsImpl, typeof OrbitControlsImpl>,
+  Overwrite<
+    ThreeElement<typeof OrbitControlsImpl>,
     {
       camera?: Camera
       domElement?: HTMLElement
@@ -24,7 +26,7 @@ export type OrbitControlsProps = Omit<
       keyEvents?: boolean | HTMLElement
     }
   >,
-  'ref'
+  'ref' | 'args'
 >
 
 export const OrbitControls: ForwardRefComponent<OrbitControlsProps, OrbitControlsImpl> =
@@ -98,6 +100,7 @@ export const OrbitControls: ForwardRefComponent<OrbitControlsProps, OrbitControl
       React.useEffect(() => {
         if (makeDefault) {
           const old = get().controls
+          // @ts-ignore https://github.com/three-types/three-ts-types/pull/1398
           set({ controls })
           return () => set({ controls: old })
         }

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import * as React from 'react'
 import { shaderMaterial } from './shaderMaterial'
-import { extend, applyProps, ReactThreeFiber, useThree } from '@react-three/fiber'
+import { extend, applyProps, ReactThreeFiber, useThree, ThreeElements } from '@react-three/fiber'
 import { toCreasedNormals } from 'three-stdlib'
 import { version } from '../helpers/constants'
 
@@ -16,8 +16,9 @@ const OutlinesMaterial = /* @__PURE__ */ shaderMaterial(
   `#include <common>
    #include <morphtarget_pars_vertex>
    #include <skinning_pars_vertex>
+   #include <clipping_planes_pars_vertex>
    uniform float thickness;
-   uniform float screenspace;
+   uniform bool screenspace;
    uniform vec2 size;
    void main() {
      #if defined (USE_SKINNING)
@@ -31,13 +32,14 @@ const OutlinesMaterial = /* @__PURE__ */ shaderMaterial(
 	   #include <morphtarget_vertex>
 	   #include <skinning_vertex>
      #include <project_vertex>
+     #include <clipping_planes_vertex>
      vec4 tNormal = vec4(normal, 0.0);
      vec4 tPosition = vec4(transformed, 1.0);
      #ifdef USE_INSTANCING
        tNormal = instanceMatrix * tNormal;
        tPosition = instanceMatrix * tPosition;
      #endif
-     if (screenspace == 0.0) {
+     if (screenspace) {
        vec3 newPosition = tPosition.xyz + tNormal.xyz * thickness;
        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0); 
      } else {
@@ -50,14 +52,16 @@ const OutlinesMaterial = /* @__PURE__ */ shaderMaterial(
    }`,
   `uniform vec3 color;
    uniform float opacity;
+   #include <clipping_planes_pars_fragment>
    void main(){
+     #include <clipping_planes_fragment>
      gl_FragColor = vec4(color, opacity);
      #include <tonemapping_fragment>
      #include <${version >= 154 ? 'colorspace_fragment' : 'encodings_fragment'}>
    }`
 )
 
-type OutlinesProps = JSX.IntrinsicElements['group'] & {
+export type OutlinesProps = Omit<ThreeElements['group'], 'ref'> & {
   /** Outline color, default: black */
   color?: ReactThreeFiber.Color
   /** Line thickness is independent of zoom, default: false */
@@ -70,6 +74,7 @@ type OutlinesProps = JSX.IntrinsicElements['group'] & {
   thickness?: number
   /** Geometry crease angle (0 === no crease), default: Math.PI */
   angle?: number
+  clippingPlanes?: THREE.Plane[]
   toneMapped?: boolean
   polygonOffset?: boolean
   polygonOffsetFactor?: number
@@ -87,16 +92,17 @@ export function Outlines({
   renderOrder = 0,
   thickness = 0.05,
   angle = Math.PI,
+  clippingPlanes,
   ...props
 }: OutlinesProps) {
-  const ref = React.useRef<THREE.Group>()
+  const ref = React.useRef<THREE.Group>(null)
   const [material] = React.useState(() => new OutlinesMaterial({ side: THREE.BackSide }))
   const { gl } = useThree()
   const contextSize = gl.getDrawingBufferSize(new THREE.Vector2())
   React.useMemo(() => extend({ OutlinesMaterial }), [])
 
   const oldAngle = React.useRef(0)
-  const oldGeometry = React.useRef<THREE.BufferGeometry>()
+  const oldGeometry = React.useRef<THREE.BufferGeometry>(null)
   React.useLayoutEffect(() => {
     const group = ref.current
     if (!group) return
@@ -129,6 +135,8 @@ export function Outlines({
           group.add(mesh)
         }
         mesh.geometry = angle ? toCreasedNormals(parent.geometry, angle) : parent.geometry
+        mesh.morphTargetInfluences = parent.morphTargetInfluences
+        mesh.morphTargetDictionary = parent.morphTargetDictionary
       }
     }
   })
@@ -140,7 +148,13 @@ export function Outlines({
     const mesh = group.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.Material>
     if (mesh) {
       mesh.renderOrder = renderOrder
-      applyProps(mesh.material as any, {
+
+      const parent = group.parent as THREE.Mesh & THREE.SkinnedMesh & THREE.InstancedMesh
+      applyProps(mesh, {
+        morphTargetInfluences: parent.morphTargetInfluences,
+        morphTargetDictionary: parent.morphTargetDictionary,
+      })
+      applyProps(mesh.material, {
         transparent,
         thickness,
         color,
@@ -150,6 +164,8 @@ export function Outlines({
         toneMapped,
         polygonOffset,
         polygonOffsetFactor,
+        clippingPlanes,
+        clipping: clippingPlanes && clippingPlanes.length > 0,
       })
     }
   })
@@ -168,5 +184,5 @@ export function Outlines({
     }
   }, [])
 
-  return <group ref={ref as React.Ref<THREE.Group>} {...props} />
+  return <group ref={ref} {...props} />
 }

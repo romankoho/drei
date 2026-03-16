@@ -10,44 +10,28 @@ import {
   DepthTexture,
   DepthFormat,
   UnsignedShortType,
-  Texture,
   HalfFloatType,
 } from 'three'
-import { useFrame, useThree, extend } from '@react-three/fiber'
+import { useFrame, useThree, extend, ThreeElements, ThreeElement } from '@react-three/fiber'
 
 import { BlurPass } from '../materials/BlurPass'
-import {
-  MeshReflectorMaterialProps,
-  MeshReflectorMaterial as MeshReflectorMaterialImpl,
-} from '../materials/MeshReflectorMaterial'
+import { MeshReflectorMaterial as MeshReflectorMaterialImpl } from '../materials/MeshReflectorMaterial'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 
-type Props = JSX.IntrinsicElements['meshStandardMaterial'] & {
-  resolution?: number
-  mixBlur?: number
-  mixStrength?: number
-  blur?: [number, number] | number
-  mirror: number
-  minDepthThreshold?: number
-  maxDepthThreshold?: number
-  depthScale?: number
-  depthToBlurRatioBias?: number
-  distortionMap?: Texture
-  distortion?: number
-  mixContrast?: number
-  reflectorOffset?: number
-}
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      meshReflectorMaterialImpl: MeshReflectorMaterialProps
-    }
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    meshReflectorMaterialImpl: ThreeElement<typeof MeshReflectorMaterialImpl>
   }
 }
 
-export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMaterialImpl> =
-  /* @__PURE__ */ React.forwardRef<MeshReflectorMaterialImpl, Props>(
+export type MeshReflectorMaterialProps = ThreeElements['meshReflectorMaterialImpl'] & {
+  resolution?: number
+  blur?: [number, number] | number
+  reflectorOffset?: number
+}
+
+export const MeshReflectorMaterial: ForwardRefComponent<MeshReflectorMaterialProps, MeshReflectorMaterialImpl> =
+  /* @__PURE__ */ React.forwardRef<MeshReflectorMaterialImpl, MeshReflectorMaterialProps>(
     (
       {
         mixBlur = 0,
@@ -73,6 +57,8 @@ export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMate
       const scene = useThree(({ scene }) => scene)
       blur = Array.isArray(blur) ? blur : [blur, blur]
       const hasBlur = blur[0] + blur[1] > 0
+      const blurX = blur[0]
+      const blurY = blur[1]
       const materialRef = React.useRef<MeshReflectorMaterialImpl>(null!)
       React.useImperativeHandle(ref, () => materialRef.current, [])
       const [reflectorPlane] = React.useState(() => new Plane())
@@ -89,8 +75,7 @@ export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMate
       const [virtualCamera] = React.useState(() => new PerspectiveCamera())
 
       const beforeRender = React.useCallback(() => {
-        // TODO: As of R3f 7-8 this should be __r3f.parent
-        const parent = (materialRef.current as any).parent || (materialRef.current as any)?.__r3f.parent
+        const parent = (materialRef.current as any).parent || (materialRef.current as any)?.__r3f.parent?.object
         if (!parent) return
 
         reflectorWorldPosition.setFromMatrixPosition(parent.matrixWorld)
@@ -163,8 +148,8 @@ export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMate
         const blurpass = new BlurPass({
           gl,
           resolution,
-          width: blur[0],
-          height: blur[1],
+          width: blurX,
+          height: blurY,
           minDepthThreshold,
           maxDepthThreshold,
           depthScale,
@@ -193,7 +178,8 @@ export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMate
         return [fbo1, fbo2, blurpass, reflectorProps]
       }, [
         gl,
-        blur,
+        blurX,
+        blurY,
         textureMatrix,
         resolution,
         mirror,
@@ -210,8 +196,7 @@ export const MeshReflectorMaterial: ForwardRefComponent<Props, MeshReflectorMate
       ])
 
       useFrame(() => {
-        // TODO: As of R3f 7-8 this should be __r3f.parent
-        const parent = (materialRef.current as any).parent || (materialRef.current as any)?.__r3f.parent
+        const parent = (materialRef.current as any).parent || (materialRef.current as any)?.__r3f.parent?.object
         if (!parent) return
 
         parent.visible = false

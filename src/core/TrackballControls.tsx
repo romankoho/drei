@@ -1,21 +1,24 @@
-import { ReactThreeFiber, useFrame, useThree } from '@react-three/fiber'
+import { ReactThreeFiber, ThreeElement, useFrame, useThree } from '@react-three/fiber'
 import * as React from 'react'
 import * as THREE from 'three'
 import { TrackballControls as TrackballControlsImpl } from 'three-stdlib'
-import { ForwardRefComponent } from '../helpers/ts-utils'
+import { ForwardRefComponent, Overwrite } from '../helpers/ts-utils'
 
-export type TrackballControlsProps = ReactThreeFiber.Overwrite<
-  ReactThreeFiber.Object3DNode<TrackballControlsImpl, typeof TrackballControlsImpl>,
-  {
-    target?: ReactThreeFiber.Vector3
-    camera?: THREE.Camera
-    domElement?: HTMLElement
-    regress?: boolean
-    makeDefault?: boolean
-    onChange?: (e?: THREE.Event) => void
-    onStart?: (e?: THREE.Event) => void
-    onEnd?: (e?: THREE.Event) => void
-  }
+export type TrackballControlsProps = Omit<
+  Overwrite<
+    ThreeElement<typeof TrackballControlsImpl>,
+    {
+      target?: ReactThreeFiber.Vector3
+      camera?: THREE.Camera
+      domElement?: HTMLElement
+      regress?: boolean
+      makeDefault?: boolean
+      onChange?: (e?: THREE.Event) => void
+      onStart?: (e?: THREE.Event) => void
+      onEnd?: (e?: THREE.Event) => void
+    }
+  >,
+  'ref' | 'args'
 >
 
 export const TrackballControls: ForwardRefComponent<TrackballControlsProps, TrackballControlsImpl> =
@@ -61,6 +64,7 @@ export const TrackballControls: ForwardRefComponent<TrackballControlsProps, Trac
       React.useEffect(() => {
         if (makeDefault) {
           const old = get().controls
+          // @ts-ignore https://github.com/three-types/three-ts-types/pull/1398
           set({ controls })
           return () => set({ controls: old })
         }

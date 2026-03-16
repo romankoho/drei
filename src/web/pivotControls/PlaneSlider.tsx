@@ -10,8 +10,8 @@ const decomposeIntoBasis = (e1: THREE.Vector3, e2: THREE.Vector3, offset: THREE.
     Math.abs(e1.x) >= Math.abs(e1.y) && Math.abs(e1.x) >= Math.abs(e1.z)
       ? 0
       : Math.abs(e1.y) >= Math.abs(e1.x) && Math.abs(e1.y) >= Math.abs(e1.z)
-      ? 1
-      : 2
+        ? 1
+        : 2
   const e2DegrowthOrder = [0, 1, 2].sort((a, b) => Math.abs(e2.getComponent(b)) - Math.abs(e2.getComponent(a)))
   const i2 = i1 === e2DegrowthOrder[0] ? e2DegrowthOrder[1] : e2DegrowthOrder[0]
   const a1 = e1.getComponent(i1)
@@ -48,14 +48,14 @@ export const PlaneSlider: React.FC<{ dir1: THREE.Vector3; dir2: THREE.Vector3; a
     axisColors,
     hoveredColor,
     opacity,
+    renderOrder,
     onDragStart,
     onDrag,
     onDragEnd,
     userData,
   } = React.useContext(context)
 
-  // @ts-expect-error new in @react-three/fiber@7.0.5
-  const camControls = useThree((state) => state.controls) as { enabled: boolean }
+  const camControls = useThree((state) => state.controls) as unknown as { enabled: boolean } | undefined
   const divRef = React.useRef<HTMLDivElement>(null!)
   const objRef = React.useRef<THREE.Group>(null!)
   const clickInfo = React.useRef<{
@@ -222,6 +222,7 @@ export const PlaneSlider: React.FC<{ dir1: THREE.Vector3; dir2: THREE.Vector3; a
           }}
           scale={length}
           userData={userData}
+          renderOrder={renderOrder}
         >
           <planeGeometry />
           <meshBasicMaterial
@@ -246,6 +247,7 @@ export const PlaneSlider: React.FC<{ dir1: THREE.Vector3; dir2: THREE.Vector3; a
           polygonOffsetFactor={-10}
           userData={userData}
           fog={false}
+          renderOrder={renderOrder}
         />
       </group>
     </group>

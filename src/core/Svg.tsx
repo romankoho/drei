@@ -1,19 +1,19 @@
-import { MeshBasicMaterialProps, MeshProps, Object3DProps, useLoader } from '@react-three/fiber'
+import { useLoader, ThreeElements } from '@react-three/fiber'
 import * as React from 'react'
 import { forwardRef, Fragment, useEffect, useMemo } from 'react'
 import { DoubleSide, Object3D } from 'three'
 import { SVGLoader } from 'three-stdlib'
 import { ForwardRefComponent } from '../helpers/ts-utils'
 
-export interface SvgProps extends Omit<Object3DProps, 'ref'> {
+export interface SvgProps extends Omit<ThreeElements['object3D'], 'ref'> {
   /** src can be a URL or SVG data */
   src: string
   skipFill?: boolean
   skipStrokes?: boolean
-  fillMaterial?: MeshBasicMaterialProps
-  strokeMaterial?: MeshBasicMaterialProps
-  fillMeshProps?: MeshProps
-  strokeMeshProps?: MeshProps
+  fillMaterial?: ThreeElements['meshBasicMaterial']
+  strokeMaterial?: ThreeElements['meshBasicMaterial']
+  fillMeshProps?: ThreeElements['mesh']
+  strokeMeshProps?: ThreeElements['mesh']
 }
 
 export const Svg: ForwardRefComponent<SvgProps, Object3D> = /* @__PURE__ */ forwardRef<Object3D, SvgProps>(
@@ -39,6 +39,8 @@ export const Svg: ForwardRefComponent<SvgProps, Object3D> = /* @__PURE__ */ forw
       return () => strokeGeometries.forEach((group) => group && group.map((g) => g.dispose()))
     }, [strokeGeometries])
 
+    let renderOrder = 0
+
     return (
       <object3D ref={ref} {...props}>
         <object3D scale={[1, -1, 1]}>
@@ -48,7 +50,7 @@ export const Svg: ForwardRefComponent<SvgProps, Object3D> = /* @__PURE__ */ forw
                 path.userData?.style.fill !== undefined &&
                 path.userData.style.fill !== 'none' &&
                 SVGLoader.createShapes(path).map((shape, s) => (
-                  <mesh key={s} {...fillMeshProps}>
+                  <mesh key={s} {...fillMeshProps} renderOrder={renderOrder++}>
                     <shapeGeometry args={[shape]} />
                     <meshBasicMaterial
                       color={path.userData!.style.fill}
@@ -64,7 +66,7 @@ export const Svg: ForwardRefComponent<SvgProps, Object3D> = /* @__PURE__ */ forw
                 path.userData?.style.stroke !== undefined &&
                 path.userData.style.stroke !== 'none' &&
                 path.subPaths.map((_subPath, s) => (
-                  <mesh key={s} geometry={strokeGeometries[p]![s]} {...strokeMeshProps}>
+                  <mesh key={s} geometry={strokeGeometries[p]![s]} {...strokeMeshProps} renderOrder={renderOrder++}>
                     <meshBasicMaterial
                       color={path.userData!.style.stroke}
                       opacity={path.userData!.style.strokeOpacity}
